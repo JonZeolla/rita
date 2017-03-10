@@ -8,6 +8,7 @@ set -o pipefail
 
 _NAME=$(basename "${0}")
 _INSDIR="/usr/local"
+_SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 __help() {
 	cat <<HEREDOC
@@ -61,6 +62,10 @@ __uninstall() {
 	rm -rf $GOPATH/src/github.com/ocmdev
 	printf "Removing $HOME/.rita \n"
 	rm -rf $HOME/.rita
+
+	if [[ "${1}" == "resinstall" ]]; then
+		__install
+	fi
 }
 
 __install() {
@@ -72,28 +77,30 @@ __install() {
 		read -p "[-] Would you like to erase it and re-install? [y/n] " -n 1 -r
 		if [[ $REPLY =~ ^[Yy]$ ]]
 		then
-			__uninstall
+			__uninstall reinstall
 		else
 			exit -1
 		fi
 	fi
+
+	# Setup requirements
+	sudo curl -sSL https://github.com/icy/pacapt/raw/ng/pacapt > /usr/local/bin/pacapt
+	sudo chmod 755 /usr/local/bin/pacapt
+
+	if [[ "${OSTYPE}" != linux* ]]; then
+		echo "Unsupported Operating System Detected (${OSTYPE}), exiting..."
+		exit 1
+	fi
 	
-	echo "[+] Updating apt...
-"
+	echo -e "[+] Updating packages...\n"
 
-	apt update -qq
+	pacapt -Sy
 
-	echo "
-[+] Ensuring bro is installed...
-"
+	echo -e "\n[+] Ensuring bro is installed...\n"
 
-	apt install -y bro
-	apt install -y broctl
+	pacapt -S bro broctl --no-confirm
 
-	echo "
-[+] Ensuring go is installed...
-"
-
+	echo "\n[+] Ensuring go is installed...\n"
 
 	# Check if go is not available in the path
 	if [ ! $(command -v go) ]
@@ -101,8 +108,8 @@ __install() {
 		# Check if go is available in the standard location
 		if [ ! -e "/usr/local/go" ]
 		then
-			# golang most recent update
-			wget https://storage.googleapis.com/golang/go1.7.1.linux-amd64.tar.gz
+			# golang download
+			curl -sSL https://storage.googleapis.com/golang/go1.7.1.linux-amd64.tar.gz > go1.7.1.linux-amd64.tar.gz
 			tar -zxf go1.7.1.linux-amd64.tar.gz -C /usr/local/
 			echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
 			rm go1.7.1.linux-amd64.tar.gz
@@ -110,21 +117,13 @@ __install() {
 		# Add go to the path
 		export PATH="$PATH:/usr/local/go/bin"
 	else
-		echo -e "\e[31m[-] WARNING: Go has been detected on this system,\e[37m if you
-installed with apt, RITA has only been tested with golang 1.7 which is currently not the
-version in the Ubuntu apt repositories, make sure your golang is up to date
-with 'go version'. Otherwise you can remove with 'sudo apt remove golang' and let this script
-install the correct version for you!
-"
+		echo -e "\e[31m[-] WARNING: Go has been detected on this system,\e[37m RITA has only been tested with golang 1.7.  Make sure your golang is up to date
+with 'go version', otherwise you can remove golang and let this script install the correct version for you!\n"
 		
 		sleep 10s
 	fi
 
-
-	echo -e "[+] Configuring Go dev environment...
-\e[0m"
-
-	sleep 3s
+	echo -e "[+] Configuring Go dev environment...\n\e[0m"
 
 	# Check if the GOPATH isn't set
 	if [ -z "${GOPATH}" ]
@@ -135,27 +134,25 @@ install the correct version for you!
 		echo 'export PATH=$PATH:$GOPATH/bin' >> $HOME/.bashrc
 		export PATH=$PATH:$GOPATH/bin
 	else
-		echo -e "[-] GOPATH seems to be set, we'll skip this part then for now
-		"
+		echo -e "[-] GOPATH seems to be set, we'll skip this part then for now\n"
 	fi
 
-	echo -e "[+] Getting the package key and install package for MongoDB...
-"
+	echo -e "[+] Installing MongoDB...\n"
 
-	sleep 3s
+	if [ $(command -v lsb_release) ]; then
+                echo "deb [ arch=amd64,arm64 ] http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.4 multiverse" > /etc/apt/sources.list.d/mongodb-org-3.4.list
+        elif [[ -f /etc/centos-release ]]; then
+                echo -e "[mongodb-org-3.4]\nname=MongoDB Repository\nbaseurl=https://repo.mongodb.org/yum/redhat/3.4/mongodb-org/3.4/x86_64/\ngpgcheck=1\nenabled=1\ngpgkey=https://www.mongodb.org/static/pgp/server-3.4.asc" > /etc/yum.repos.d/mongodb-org-3.4.repo
+        fi
 
-	apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 0C49F3730359A14518585931BC711F9BA15703C6
-
-	echo "deb [ arch=amd64,arm64 ] http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.4 multiverse" > /etc/apt/sources.list.d/mongodb-org-3.4.list
-
-	apt update -qq
-	apt install -y mongodb-org
+	pacapt -Sy
+	pacapt -S mongodb-org --no-confirm
 
 	printf "\n[+] Running 'go get github.com/ocmdev/rita...'\n\n"
 
 	# Build RITA
 
-	apt install -y build-essential  
+	pacapt -S build-essential golang --no-confirm
 	go get github.com/ocmdev/rita
 	printf "[+] Installing RITA...\n\n"
 	cd $GOPATH/src/github.com/ocmdev/rita
@@ -164,34 +161,32 @@ install the correct version for you!
 	printf "[+] Transferring files...\n\n"
 	mkdir $_RITADIR
 
-	cp -r etc $_RITADIR/etc
-	cp LICENSE $_RITADIR/LICENSE
+	cp -r $_SCRIPTDIR/etc $_RITADIR/etc
+	cp $_SCRIPTDIR/LICENSE $_RITADIR/LICENSE
 
 	# Install the base configuration file
 	printf "[+] Installing config to $HOME/.rita/config.yaml\n\n"
 	mkdir $HOME/.rita
-	cp etc/rita.yaml $HOME/.rita/config.yaml
+	cp $_SCRIPTDIR/etc/rita.yaml $HOME/.rita/config.yaml
 	
 
 	# Give ownership of ~/go to the user
 	sudo chown -R $SUDO_USER:$SUDO_USER $HOME/go
 	sudo chown -R $SUDO_USER:$SUDO_USER $HOME/.rita
 
-	echo "[+] Make sure you also configure Bro and run with 'sudo broctl deploy' and make sure MongoDB is running with the command 'mongo' or 'sudo mongo'.
-"
+	echo -e "[+] Make sure you also configure Bro and run with 'sudo broctl deploy' and make sure MongoDB is running with the command 'mongo' or 'sudo mongo'."
 
-	echo -e "[+] If you need to stop Mongo at any time, run 'sudo service mongod stop'
-[+] In order to finish the installation, reload bash config with 'source ~/.bashrc'.
-[+] Also make sure to start the mongoDB service with 'sudo service mongod start before running RITA.
-[+] You can access the mongo shell with 'sudo mongo'
-"
+	echo -e "[+] If you need to stop Mongo at any time, run 'sudo service mongod stop'"
+	echo -e "[+] In order to finish the installation, reload bash config with 'source ~/.bashrc'."
+	echo -e "[+] Also make sure to start the mongoDB service with 'sudo service mongod start before running RITA."
+	echo -e "[+] You can access the mongo shell with 'sudo mongo'\n"
 
-	echo -e "[+] You may need to source your .bashrc before you call RITA!
-"
 
-	printf "Thank you for installing RITA!\n"
-	printf "OCMDev Group projects IRC #ocmdev on OFTC\n"
-	printf "Happy hunting\n"
+	echo -e "[+] You may need to source your .bashrc before you call RITA!\n"
+
+	echo -e "Thank you for installing RITA!\n"
+	echo -e "OCMDev Group projects IRC #ocmdev on OFTC\n"
+	echo -e "Happy hunting\n"
 
 }
 

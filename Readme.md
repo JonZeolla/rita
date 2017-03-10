@@ -15,7 +15,7 @@ Additional functionality is being developed and will be included soon.
 
 
 ### Automatic Installation
-**The automatic RITA installer is officially supported on Ubuntu 16.04 LTS**
+**The automatic RITA installer is officially supported on Ubuntu 16.04 LTS** but should work on numerous operating systems.
 
 Clone the package:
 ```bash
