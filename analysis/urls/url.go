@@ -17,9 +17,9 @@ func BuildUrlsCollection(res *database.Resources) {
 		pipeline := getUrlCollectionScript(res.System)
 
 	// Create it
-	error_check := res.DB.CreateCollection(new_collection_name, new_collection_keys)
-	if error_check != "" {
-		res.Log.Error("Failed: ", new_collection_name, error_check)
+	err := res.DB.CreateCollection(new_collection_name, new_collection_keys)
+	if err != nil {
+		res.Log.Error("Failed: ", new_collection_name, err.Error())
 		return
 	}
 
@@ -106,8 +106,8 @@ func BuildHostnamesCollection(res *database.Resources) {
 		pipeline := getHostnamesAggregationScript(res.System)
 
 	err := res.DB.CreateCollection(new_collection_name, new_collection_keys)
-	if err != "" {
-		res.Log.Error("Failed: ", new_collection_name, err)
+	if err != nil {
+		res.Log.Error("Failed: ", new_collection_name, err.Error())
 		return
 	}
 
