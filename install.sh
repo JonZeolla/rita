@@ -6,7 +6,12 @@
 set -o errexit
 set -o pipefail
 
-_NAME=$(basename "${0}")
+# TODO: Temporary
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	_NAME=$(basename "${0}")
+else
+	_NAME="install.sh"
+fi
 _INSDIR="/usr/local"
 
 __help() {
@@ -54,13 +59,13 @@ HEREDOC
 
 __uninstall() {
 	printf "Removing $_RITADIR \n"
-	rm -rf $_RITADIR
+	sudo rm -rf $_RITADIR
 	printf "Removing $GOPATH/bin/rita \n"
-	rm -rf $GOPATH/bin/rita
+	sudo rm -rf $GOPATH/bin/rita
 	printf "Removing $GOPATH/src/github.com/ocmdev \n"
-	rm -rf $GOPATH/src/github.com/ocmdev
+	sudo rm -rf $GOPATH/src/github.com/ocmdev
 	printf "Removing $HOME/.rita \n"
-	rm -rf $HOME/.rita
+	sudo rm -rf $HOME/.rita
 }
 
 __install() {
@@ -81,14 +86,14 @@ __install() {
 	echo "[+] Updating apt...
 "
 
-	apt update -qq
+	sudo apt update -qq
 
 	echo "
 [+] Ensuring bro is installed...
 "
 
-	apt install -y bro
-	apt install -y broctl
+	sudo apt install -y bro
+	sudo apt install -y broctl
 
 	echo "
 [+] Ensuring go is installed...
@@ -101,9 +106,10 @@ __install() {
 		# Check if go is available in the standard location
 		if [ ! -e "/usr/local/go" ]
 		then
+			# TODO:  Assumes write to the working directory
 			# golang most recent update
 			wget https://storage.googleapis.com/golang/go1.7.1.linux-amd64.tar.gz
-			tar -zxf go1.7.1.linux-amd64.tar.gz -C /usr/local/
+			sudo tar -zxf go1.7.1.linux-amd64.tar.gz -C /usr/local/
 			echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
 			rm go1.7.1.linux-amd64.tar.gz
 		fi
@@ -129,11 +135,13 @@ install the correct version for you!
 	# Check if the GOPATH isn't set
 	if [ -z "${GOPATH}" ]
 	then
-		mkdir -p $HOME/go/{src,pkg,bin}
+		sudo mkdir -p $HOME/go/{src,pkg,bin}
 		echo 'export GOPATH=$HOME/go' >> $HOME/.bashrc
 		export GOPATH=$HOME/go
 		echo 'export PATH=$PATH:$GOPATH/bin' >> $HOME/.bashrc
 		export PATH=$PATH:$GOPATH/bin
+		# Will only be effective if someone runs this via `sudo -s source ./install.sh`
+		source $HOME/.bashrc
 	else
 		echo -e "[-] GOPATH seems to be set, we'll skip this part then for now
 		"
@@ -144,18 +152,20 @@ install the correct version for you!
 
 	sleep 3s
 
-	apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 0C49F3730359A14518585931BC711F9BA15703C6
+	sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 0C49F3730359A14518585931BC711F9BA15703C6
 
-	echo "deb [ arch=amd64,arm64 ] http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.4 multiverse" > /etc/apt/sources.list.d/mongodb-org-3.4.list
+	sudo echo "deb [ arch=amd64,arm64 ] http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.4 multiverse" > /etc/apt/sources.list.d/mongodb-org-3.4.list
 
-	apt update -qq
-	apt install -y mongodb-org
+	sudo apt update -qq
+	sudo apt install -y mongodb-org
+	sudo systemctl enable mongod.service
+	sudo systemctl start mongod.service
 
 	printf "\n[+] Running 'go get github.com/ocmdev/rita...'\n\n"
 
 	# Build RITA
 
-	apt install -y build-essential  
+	sudo apt install -y build-essential  
 	go get github.com/ocmdev/rita
 	printf "[+] Installing RITA...\n\n"
 	cd $GOPATH/src/github.com/ocmdev/rita
@@ -180,9 +190,8 @@ install the correct version for you!
 	echo "[+] Make sure you also configure Bro and run with 'sudo broctl deploy' and make sure MongoDB is running with the command 'mongo' or 'sudo mongo'.
 "
 
-	echo -e "[+] If you need to stop Mongo at any time, run 'sudo service mongod stop'
-[+] In order to finish the installation, reload bash config with 'source ~/.bashrc'.
-[+] Also make sure to start the mongoDB service with 'sudo service mongod start before running RITA.
+#[+] Also $(tput bold)make sure to start the mongoDB service with 'sudo service mongod' start before running RITA$(tput sgr0).
+	echo -e "[+] If you need to stop Mongo at any time, run 'sudo service mongod stop'.  Note that it will be started on server reboot by default.
 [+] You can access the mongo shell with 'sudo mongo'
 "
 
@@ -214,8 +223,8 @@ __entry() {
 	_RITADIR="$_INSDIR/rita"
 	
 
-	# Check to see if the user has permission to install to this directory
-	if [ -w $_INSDIR ]
+	# Check to see if the user has sudo access
+	if sudo -v > /dev/null 2>&1
 	then
 		# Check if we are uninstalling
 		if [[ "${1:-}" =~ ^-u|--uninstall ]]
@@ -225,7 +234,7 @@ __entry() {
 			__install
 		fi
 	else
-		printf "You do NOT have permission to write to $_INSDIR\n\n"
+		printf "You do NOT have sudo access"
 		__help
 	fi
 }
