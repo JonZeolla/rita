@@ -166,13 +166,14 @@ install the correct version for you!
 	# Build RITA
 
 	sudo apt install -y build-essential  
-	go get github.com/ocmdev/rita
+	sudo go get github.com/ocmdev/rita
+	sudo chown -R ${USER} github.com
 	printf "[+] Installing RITA...\n\n"
 	cd $GOPATH/src/github.com/ocmdev/rita
 	make install
 
 	printf "[+] Transferring files...\n\n"
-	mkdir $_RITADIR
+	sudo mkdir $_RITADIR
 
 	cp -r etc $_RITADIR/etc
 	cp LICENSE $_RITADIR/LICENSE
