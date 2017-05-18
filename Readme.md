@@ -31,13 +31,13 @@ Run the installer:
 By default, Rita will install to /usr/local/rita.
 However, you can change the install location with the *-i* flag.
 ```bash
-sudo ./install.sh
+sudo . ./install.sh
 ```
 
 ***or***
 
 ```bash
-sudo ./install.sh -i /path/to/install/directory
+sudo . ./install.sh -i /path/to/install/directory
 ```
 
 ### Manual Installation

@@ -134,6 +134,8 @@ install the correct version for you!
 		export GOPATH=$HOME/go
 		echo 'export PATH=$PATH:$GOPATH/bin' >> $HOME/.bashrc
 		export PATH=$PATH:$GOPATH/bin
+		# Will only be effective if someone runs this via `. ./install.sh`
+		source $HOME/.bashrc
 	else
 		echo -e "[-] GOPATH seems to be set, we'll skip this part then for now
 		"
@@ -150,6 +152,8 @@ install the correct version for you!
 
 	apt update -qq
 	apt install -y mongodb-org
+	sudo systemctl enable mongod.service
+	sudo systemctl start mongod.service
 
 	printf "\n[+] Running 'go get github.com/ocmdev/rita...'\n\n"
 
@@ -180,9 +184,8 @@ install the correct version for you!
 	echo "[+] Make sure you also configure Bro and run with 'sudo broctl deploy' and make sure MongoDB is running with the command 'mongo' or 'sudo mongo'.
 "
 
-	echo -e "[+] If you need to stop Mongo at any time, run 'sudo service mongod stop'
-[+] In order to finish the installation, reload bash config with 'source ~/.bashrc'.
-[+] Also make sure to start the mongoDB service with 'sudo service mongod start before running RITA.
+#[+] Also $(tput bold)make sure to start the mongoDB service with 'sudo service mongod' start before running RITA$(tput sgr0).
+	echo -e "[+] If you need to stop Mongo at any time, run 'sudo service mongod stop'.  Note that it will be started on server reboot by default.
 [+] You can access the mongo shell with 'sudo mongo'
 "
 
